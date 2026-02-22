@@ -1,16 +1,16 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { HashRouter, Routes, Route } from 'react-router-dom';
 import './App.css';
 import Portfolio from './pages/Portfolio';
 import KimiGuide from './pages/KimiGuide';
 
 function App() {
   return (
-    <BrowserRouter>
+    <HashRouter>
       <Routes>
         <Route path="/" element={<Portfolio />} />
         <Route path="/guia-kimi" element={<KimiGuide />} />
       </Routes>
-    </BrowserRouter>
+    </HashRouter>
   );
 }
 
