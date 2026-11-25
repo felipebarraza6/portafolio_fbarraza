@@ -7,6 +7,7 @@ import PromptLogo from '../components/fx/PromptLogo';
 import CabinBackdrop from '../components/fx/CabinBackdrop';
 import {
   ARRIVE_EVENT,
+  NAV_EVENT,
   SECTION_ORDER,
   adjacentSection,
   navigateTo,
@@ -32,6 +33,17 @@ const LAZY: Partial<Record<SectionId, ComponentType>> = {
   contacto: ContactSection,
 };
 
+function activateReveals(id: string) {
+  const el = document.getElementById(id);
+  if (!el) return false;
+  el.querySelectorAll('.reveal').forEach((n) => n.classList.add('active'));
+  el.classList.remove('section-arrive');
+  void el.offsetWidth;
+  el.classList.add('section-arrive');
+  window.setTimeout(() => el.classList.remove('section-arrive'), 500);
+  return true;
+}
+
 function Panel({
   id,
   active,
@@ -43,11 +55,29 @@ function Panel({
   mounted: boolean;
   children: ReactNode;
 }) {
+  // Con lazy mount el DOM llega después del ARRIVE: reintentar hasta activar .reveal.
+  useEffect(() => {
+    if (!active || !mounted || id === 'top') return;
+    if (activateReveals(id)) return;
+    let tries = 0;
+    let raf = 0;
+    const tick = () => {
+      if (activateReveals(id) || ++tries > 60) return;
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [active, mounted, id]);
+
   return (
     <div className={`deck-panel ${active ? 'is-active' : ''}`} id={id === 'top' ? 'panel-top' : undefined} aria-hidden={!active}>
       <div className="deck-scroll">
         <div className="deck-frame">
-          {mounted ? <Suspense fallback={<div className="mx-auto max-w-6xl px-5 py-16 font-mono text-xs text-[var(--text-muted)]">cargando…</div>}>{children}</Suspense> : null}
+          {mounted ? (
+            <Suspense fallback={<div className="mx-auto max-w-6xl px-5 py-16 font-mono text-xs text-[var(--text-muted)]">cargando…</div>}>
+              {children}
+            </Suspense>
+          ) : null}
         </div>
       </div>
     </div>
@@ -106,18 +136,22 @@ export default function Portfolio() {
     return () => document.removeEventListener('click', onClick);
   }, []);
 
+  // Monta el chunk apenas empieza la animación de navegación (antes del ARRIVE).
+  useEffect(() => {
+    const mark = (e: Event) => {
+      const id = (e as CustomEvent<{ id: SectionId }>).detail.id;
+      setSeen((s) => (s.has(id) ? s : new Set(s).add(id)));
+    };
+    window.addEventListener(NAV_EVENT, mark);
+    return () => window.removeEventListener(NAV_EVENT, mark);
+  }, []);
+
   useEffect(() => {
     const onArrive = (e: Event) => {
       const id = (e as CustomEvent<{ id: SectionId }>).detail.id;
       setActiveId(id);
       setSeen((s) => (s.has(id) ? s : new Set(s).add(id)));
-      const el = document.getElementById(id);
-      if (!el) return;
-      el.querySelectorAll('.reveal').forEach((n) => n.classList.add('active'));
-      el.classList.remove('section-arrive');
-      void el.offsetWidth;
-      el.classList.add('section-arrive');
-      window.setTimeout(() => el.classList.remove('section-arrive'), 500);
+      activateReveals(id);
     };
     window.addEventListener(ARRIVE_EVENT, onArrive);
     document.getElementById('top')?.querySelectorAll('.reveal').forEach((n) => n.classList.add('active'));
