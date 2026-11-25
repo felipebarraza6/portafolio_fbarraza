@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
-import { NAV_EVENT, jumpTo, sectionMeta } from '../../lib/navigation';
+import { NAV_EVENT, jumpTo, sectionMeta, setNavBusy } from '../../lib/navigation';
 
-const SCROLL_AT = 420;
-const EXIT_AT = 500;
-const DONE_AT = 720;
+const SCROLL_AT = 380;
+const EXIT_AT = 460;
+const DONE_AT = 680;
 
 function hexField(seed: number) {
   const rows: string[] = [];
@@ -12,9 +12,9 @@ function hexField(seed: number) {
     s = (s * 9301 + 49297) % 233280;
     return s / 233280;
   };
-  for (let r = 0; r < 18; r++) {
+  for (let r = 0; r < 14; r++) {
     let line = '';
-    for (let c = 0; c < 22; c++) line += Math.floor(rnd() * 65535).toString(16).padStart(4, '0') + ' ';
+    for (let c = 0; c < 18; c++) line += Math.floor(rnd() * 65535).toString(16).padStart(4, '0') + ' ';
     rows.push(line);
   }
   return rows;
@@ -33,16 +33,21 @@ export default function NavTerminal() {
       const id = (e as CustomEvent<{ id: string }>).detail.id;
       clear();
       const key = Date.now();
+      setNavBusy(true);
       setRun({ id, key, phase: 'in' });
       timers.current.push(
-        window.setTimeout(() => jumpTo(id, 'instant'), SCROLL_AT),
+        window.setTimeout(() => jumpTo(id), SCROLL_AT),
         window.setTimeout(() => setRun((r) => (r && r.key === key ? { ...r, phase: 'out' } : r)), EXIT_AT),
-        window.setTimeout(() => setRun((r) => (r && r.key === key ? null : r)), DONE_AT),
+        window.setTimeout(() => {
+          setRun((r) => (r && r.key === key ? null : r));
+          setNavBusy(false);
+        }, DONE_AT),
       );
     };
     window.addEventListener(NAV_EVENT, onNav);
     return () => {
       clear();
+      setNavBusy(false);
       window.removeEventListener(NAV_EVENT, onNav);
     };
   }, []);
@@ -76,7 +81,7 @@ export default function NavTerminal() {
             </span>
           </p>
           {meta.lines.map((l, i) => (
-            <p key={l} className="nav-term-line" style={{ animationDelay: `${220 + i * 90}ms` }}>
+            <p key={l} className="nav-term-line" style={{ animationDelay: `${180 + i * 70}ms` }}>
               <span className="text-[var(--gx-accent)]">›</span> {l}
             </p>
           ))}

@@ -72,7 +72,7 @@ function MiniBot({ id, color, active }: { id: string; color: string; active: boo
   );
 }
 
-export default function AgentSwarm() {
+export default function AgentSwarm({ models }: { models?: Record<string, string> }) {
   const agents = openCode.agents;
   const [active, setActive] = useState(0);
   const pausedTicks = useRef(0);
@@ -175,7 +175,7 @@ export default function AgentSwarm() {
         </div>
         <div className="agent-tags flex flex-wrap gap-1.5 content-start">
           <span className="tag" style={{ color: current.color }}>
-            model · {current.model}
+            model · {models?.[current.id] ?? current.model}
           </span>
           <span className="tag" style={{ color: current.edits ? 'var(--green)' : 'var(--text-muted)' }}>
             {current.edits ? <PenLine size={11} /> : <Lock size={11} />} {current.edits ? 'edita' : 'solo lectura'}

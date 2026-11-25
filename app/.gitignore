@@ -1,3 +1,5 @@
 node_modules/
 .DS_Store
 *.local
+public/github-snapshot.json
+dist/github-snapshot.json

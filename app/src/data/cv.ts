@@ -16,7 +16,7 @@ export const profile = {
   cv: `${import.meta.env.BASE_URL}CV_Felipe_Barraza.pdf`,
   cvFile: 'CV_Felipe_Barraza.pdf',
   mission:
-    'Mi misión como profesional es transformar problemas reales en productos de software robustos, seguros y listos para escalar.',
+    'Plataformas donde el software, la IA y el IoT se encuentran: telemetría en campo, agentes con permisos mínimos y sistemas listos para producción.',
   bio: [
     'Desde 2012 diseño arquitecturas, desarrollo y mantengo infraestructuras. Trabajo con agentes de IA como parte de mi equipo, en cada etapa del desarrollo, para construir productos más sólidos y de mejor calidad.',
     'Lidero el área de software en una empresa de ingeniería y telemetría (IoT y automatización de gestión regulatoria), soy CTO y socio en Quality Net, y desarrollo mis propios productos en Y ARQ.',
@@ -143,6 +143,54 @@ export const openCode = {
       vars: ['DEPLOY_ENV', 'REQUIRE_HUMAN=1'],
     },
   ],
+  models: {
+    'deepseek-v4.1-flash': { maker: 'DeepSeek', traits: ['rápido', 'barato', 'caché'] },
+    'deepseek-v4.1-flash-free': { maker: 'DeepSeek', traits: ['gratis', 'exploración'] },
+    'deepseek-v4-flash': { maker: 'DeepSeek', traits: ['rápido', 'barato'] },
+    'mimo-v2.6-flash': { maker: 'Xiaomi', traits: ['liviano', 'ejecuta y reporta'] },
+    'qwen3.8-flash': { maker: 'Alibaba', traits: ['rápido', 'revisión'] },
+    'qwen3.7-plus': { maker: 'Alibaba', traits: ['equilibrado', 'esfuerzo medio'] },
+    'kimi-k3': { maker: 'Moonshot', traits: ['razonamiento', 'arquitectura'] },
+    'kimi-k2.7-code': { maker: 'Moonshot', traits: ['código', 'multimodal'] },
+    'grok-4.5': { maker: 'xAI', traits: ['razonamiento profundo'] },
+  } as Record<string, { maker: string; traits: string[] }>,
+  profiles: [
+    {
+      id: 'ahorro',
+      label: 'ahorro',
+      color: '#b8bb26',
+      when: 'Día a día: features chicas, fixes y refactors. Modelos flash con caché en todo el equipo.',
+      stat: '$0.15 / $0.60 por millón de tokens · 13× más barato en entrada que kimi-k3.1-pro',
+      models: {
+        orchestrator: 'deepseek-v4.1-flash',
+        builder: 'deepseek-v4.1-flash',
+        verifier: 'mimo-v2.6-flash',
+        reviewer: 'qwen3.8-flash',
+        deployer: 'mimo-v2.6-flash',
+      },
+    },
+    {
+      id: 'calidad',
+      label: 'calidad',
+      color: '#d3869b',
+      when: 'Cambios críticos: auth, pagos, migraciones. Más razonamiento donde se planifica y se revisa.',
+      stat: 'kimi-k3 planifica y revisa · kimi-k2.7-code implementa',
+      models: {
+        orchestrator: 'kimi-k3',
+        builder: 'kimi-k2.7-code',
+        verifier: 'qwen3.7-plus',
+        reviewer: 'kimi-k3',
+        deployer: 'deepseek-v4-flash',
+      },
+    },
+  ] as { id: string; label: string; color: string; when: string; stat: string; models: Record<string, string> }[],
+  specialists: [
+    { need: 'typos y cambios de un archivo', model: 'deepseek-v4.1-flash-free', agent: 'quick' },
+    { need: 'explorar el repo y buscar docs', model: 'deepseek-v4.1-flash-free', agent: 'explore · librarian' },
+    { need: 'arquitectura y debugging profundo', model: 'kimi-k3', agent: 'oracle · metis · momus' },
+    { need: 'lógica compleja', model: 'grok-4.5', agent: 'ultrabrain' },
+    { need: 'UI, frontend y capturas', model: 'kimi-k2.7-code', agent: 'visual · multimodal' },
+  ],
   flow: 'contexto → plan → build aislado → evidencia → revisión → release con humano',
   rules: 'permisos mínimos por agente · contexto podado (DCP) · sin secretos en el contexto',
   deploy: 'nunca a producción sin confirmación humana',
@@ -234,23 +282,47 @@ export const skillLogos: Record<string, string> = {
   Cursor: 'cursor',
 };
 
-export const experience = [
+export type OrgNode = { label: string; sub?: string; me?: boolean };
+
+export type Job = {
+  role: string;
+  company: string;
+  logo?: string;
+  period: string;
+  place: string;
+  context: string;
+  positions?: { title: string; period: string }[];
+  /** Niveles de arriba hacia abajo; un nivel con varios nodos son pares. */
+  org: { levels: OrgNode[][]; below: { label: string; items: string[] } };
+  highlights: string[];
+  stack: string[];
+  tools: string[];
+  references?: { name: string; role: string; letter: string; page: number }[];
+};
+
+const AI_TOOLS = ['OpenCode', 'Cursor', 'Claude Code', 'Grok Build', 'Agentes de IA'];
+
+export const experience: Job[] = [
   {
     role: 'Líder de Área de Software',
     company: 'SmartHydro',
     logo: logo('ikolu.png'),
     period: 'ene. 2021 – actualidad',
     place: 'Chillán',
-    summary:
-      'Empresa chilena de telemetría de agua y cumplimiento ambiental. Lidero arquitectura de datos y plataformas de Operaciones y Ventas, alineado con el CTO y las prioridades del negocio.',
+    context: 'Empresa chilena de telemetría de agua y cumplimiento ambiental.',
+    org: {
+      levels: [[{ label: 'CEO' }], [{ label: 'CTO' }], [{ label: 'Líder de Área de Software', sub: 'mi cargo', me: true }]],
+      below: { label: 'equipo de software a cargo', items: ['Backend', 'Frontend', 'DevOps e infra', 'QA', 'Datos e IA', 'Soporte'] },
+    },
     highlights: [
+      'Lidero la arquitectura de datos y de las plataformas de Operaciones y Ventas, en alineación directa con el CTO y las prioridades del negocio.',
       'Conduzco al equipo de software en estándares, revisión de código y entrega a producción de APIs, frontends y automatizaciones.',
-      'Automaticé el despliegue continuo con systemd y GitHub Actions, y los respaldos de PostgreSQL con retención en DigitalOcean Spaces.',
-      'Publiqué el broker MQTT con TLS y ACL mediante Cloudflare Tunnel, en contenedores endurecidos con Let\'s Encrypt.',
+      'Automaticé el despliegue continuo con systemd y GitHub Actions, y los respaldos de PostgreSQL con retención en DigitalOcean Spaces y en el clúster gestionado.',
+      "Publiqué el broker MQTT con TLS y ACL mediante Cloudflare Tunnel, en contenedores endurecidos con certificados automáticos de Let's Encrypt.",
       'Desarrollo investigación aplicada en IA e IoT y prototipos de agentes multimodales para operaciones institucionales.',
     ],
-    stack: ['Python', 'Django', 'DRF', 'PostgreSQL', 'Redis', 'Celery', 'MQTT', 'React', 'Next.js', 'Flutter', 'Docker'],
-    tools: ['GitHub Actions', 'Cloudflare', 'DigitalOcean', 'equipo de agentes', 'Cursor', 'Claude Code', 'Grok Build'],
+    stack: ['Python', 'Django', 'DRF', 'PostgreSQL', 'Redis', 'Celery', 'MQTT', 'React', 'Next.js', 'Flutter', 'Docker', 'GitHub Actions', 'Cloudflare', 'DigitalOcean'],
+    tools: AI_TOOLS,
   },
   {
     role: 'CTO y Accionista',
@@ -258,15 +330,25 @@ export const experience = [
     logo: logo('qualitynet.svg'),
     period: '2017 – actualidad',
     place: 'Chillán · Norte Grande',
-    summary:
-      'Empresa de desarrollo de software. Desarrollo plataformas web a medida y administro infraestructura de portales de medios de Click and Go.',
+    context: 'Empresa de desarrollo de software con Martín Esparza como CEO y clientes como Click and Go.',
+    org: {
+      levels: [
+        [
+          { label: 'Martín Esparza', sub: 'CEO' },
+          { label: 'Felipe Barraza', sub: 'CTO y accionista', me: true },
+        ],
+        [{ label: 'Quality Net', sub: 'desarrollo de software' }],
+      ],
+      below: { label: 'clientes', items: ['Click and Go · portales municipales', 'Otros clientes · plataformas a medida'] },
+    },
     highlights: [
-      'Infraestructura de portales como iquique.cl y viña.cl: Nginx con TLS, caché y CDN Cloudflare, contenidos y SEO.',
-      'Plataforma digital del encuentro AMA (Teatro Regional del Maule, 2021–2022): streaming, chat en vivo y soporte 24/7.',
-      'Sistemas de gestión de RRHH, recursos y productos; implementación de Dolibarr para clientes empresariales.',
+      'Desarrollo plataformas web a medida para los clientes de la empresa.',
+      'Administro la infraestructura de los portales de medios de Click and Go, como iquique.cl y viña.cl: proxy Nginx con TLS, caché y CDN de Cloudflare, además de gestión de contenidos y SEO.',
+      'Desarrollé la plataforma digital del encuentro de artes escénicas AMA, del Teatro Regional del Maule (2021–2022), con streaming, chat en vivo y soporte 24/7.',
+      'Desarrollé sistemas de gestión de RRHH, recursos y productos, e implementé Dolibarr para clientes empresariales.',
     ],
-    stack: ['Angular', 'JavaScript', 'PHP', 'WordPress', 'Dolibarr'],
-    tools: ['Nginx', 'Cloudflare', 'Docker', 'equipo de agentes', 'Cursor', 'Claude Code', 'Grok Build'],
+    stack: ['Angular', 'JavaScript', 'PHP', 'WordPress', 'Dolibarr', 'Nginx', 'Cloudflare', 'Docker'],
+    tools: [...AI_TOOLS, 'DeepSeek y modelos abiertos'],
   },
   {
     role: 'Analista Estadístico y Programador',
@@ -274,29 +356,59 @@ export const experience = [
     logo: logo('hospital.png'),
     period: '2016 – 2018',
     place: 'Iquique',
-    summary:
-      'Unidad de Estadísticas y Gestión de la Información: consolidación de datos de producción clínica y reportes de gestión.',
+    context: 'Hospital regional de Iquique. Trabajé en la unidad que concentra la información estadística de todos los servicios clínicos.',
+    org: {
+      levels: [
+        [{ label: 'Dirección' }],
+        [{ label: 'Subdirección Médica' }],
+        [{ label: 'U. de Estadísticas y Gestión de la Información', sub: 'mi unidad', me: true }],
+      ],
+      below: {
+        label: 'servicios que consolidaba',
+        items: ['Urgencia', 'Pabellón', 'Hospitalización', 'Consultas (CAE)', 'Apoyo clínico', 'Otros'],
+      },
+    },
     highlights: [
-      'Automaticé recolección y reportes de la unidad; gestión de proyectos con metodología PMO.',
+      'Analicé y consolidé los datos de producción de todos los servicios del hospital para los reportes estadísticos y de gestión.',
+      'Automaticé procesos de recolección y reporte de la unidad, y gestioné los proyectos con metodología PMO.',
       'Desarrollé la plataforma web con la que la unidad publica su información estadística.',
     ],
     stack: ['R', 'BI', 'PHP', 'JavaScript', 'SQL', 'MySQL', 'Linux'],
     tools: [],
+    references: [
+      { name: 'Patricio Chandía Núñez', role: 'Jefe Depto. de Administración de Información de Salud', letter: 'carta · sep. 2018', page: 11 },
+      { name: 'William Caqueo', role: 'Subdirector Depto. de Planificación, Desarrollo y Proyectos', letter: 'recomendación · sep. 2018', page: 13 },
+      { name: 'Irene Vásquez Guacte', role: 'Jefa Unidad Gestión de la Información en Salud · Servicio de Salud Iquique', letter: 'recomendación · sep. 2018', page: 12 },
+    ],
   },
   {
-    role: 'Desarrollador de Sistemas (Full Stack) / Administrador de Sistemas',
+    role: 'Desarrollador de Sistemas · Administrador de Sistemas',
     company: 'MOR Chile S.A.',
     logo: logo('mor.png'),
-    period: '2012 – 2016',
+    period: '2012 – may. 2016',
     place: 'Iquique',
-    summary:
-      'Empresa de ingeniería y montaje para la gran minería. Administración de servidores, redes y desarrollo Java.',
+    context: 'Empresa de ingeniería y montaje para la gran minería, con base en Alto Hospicio.',
+    positions: [
+      { title: 'Desarrollador de Sistemas (Full Stack)', period: 'nov. 2015 – may. 2016' },
+      { title: 'Administrador de Sistemas', period: '2012 – 2015' },
+    ],
+    org: {
+      levels: [
+        [{ label: 'Gerencia General' }],
+        [{ label: 'Área de Sistemas (TI)' }],
+        [{ label: 'Administrador de sistemas · desarrollador Java', sub: 'mi rol', me: true }],
+      ],
+      below: { label: 'a mi cargo', items: ['Servidores', 'Redes', 'Soporte', 'Desarrollo Java', 'Web services', 'Proyecto EWS'] },
+    },
     highlights: [
-      'Implementé servidores del proyecto EWS y soporte a usuarios.',
-      'Aplicaciones web en Java con Hibernate y HQL, integradas mediante web services SOAP.',
+      'Administré servidores, redes y soporte a usuarios, e implementé los servidores del proyecto EWS.',
+      'Desarrollé aplicaciones web en Java con Hibernate y HQL, integradas mediante web services.',
     ],
     stack: ['Java', 'Hibernate', 'HQL', 'Web services SOAP', 'SQL', 'C#', 'Shell', 'Linux'],
     tools: [],
+    references: [
+      { name: 'Mariajosé Tapia Saavedra', role: 'Líder de Proyectos y Contratos', letter: 'carta · jun. 2016', page: 10 },
+    ],
   },
 ];
 

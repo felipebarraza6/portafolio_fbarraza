@@ -1,5 +1,6 @@
 import { useMemo, useState, type CSSProperties } from "react";
 import {
+  CircleCheck,
   CircleDot,
   GitBranch,
   GitCommitHorizontal,
@@ -7,16 +8,19 @@ import {
   GitPullRequest,
   Github,
   RefreshCw,
+  ShieldCheck,
   Star,
   Zap,
   type LucideIcon,
 } from "lucide-react";
 import SectionTitle from "./SectionTitle";
 import EnergyCore from "../pixel/EnergyCore";
+import CiCdPipeline from "./CiCdPipeline";
+import { deliveryStats, useGitHubActions } from "../../hooks/useGitHubActions";
 import {
   useGitHubLive,
   type GitHubEvent,
-  type OpenIssue,
+  type Issue,
 } from "../../hooks/useGitHubLive";
 
 function timeAgo(iso: string) {
@@ -41,92 +45,109 @@ const KIND: Record<
   other: { label: "event", color: "#a89984", Icon: Zap },
 };
 
-const HOLO_POS: CSSProperties[] = [
-  { top: "12%", left: "4%", animationDelay: "0s" },
-  { top: "20%", right: "4%", animationDelay: "1.4s" },
-  { bottom: "18%", left: "6%", animationDelay: "2.6s" },
+const OPEN_COLOR = "#fabd2f";
+const CLOSED_COLOR = "#8ec07c";
+const URGENT_COLOR = "#fb4934";
+const WEEK_MS = 7 * 24 * 3_600_000;
+
+const hasLabel = (it: Issue, test: (name: string) => boolean) =>
+  it.labels.some((l) => test(l.name.toLowerCase()));
+const isUrgent = (it: Issue) => hasLabel(it, (n) => n === "p0" || n === "p1");
+const isBlocked = (it: Issue) => hasLabel(it, (n) => n.startsWith("blocked"));
+const isBug = (it: Issue) => hasLabel(it, (n) => n === "bug");
+
+type Project = {
+  repo: string;
+  name: string;
+  open: number;
+  closed: number;
+  urgent: number;
+  blocked: number;
+  bugs: number;
+  updated: string;
+};
+
+type Tab = "abiertas" | "cerradas" | "actividad";
+
+type NodeSpec = {
+  key: string;
+  side: "l" | "r";
+  anchor: [number, number];
+  elbow: [number, number];
+  target: [number, number];
+};
+
+/** Posiciones en % de la cámara: cada stat apunta a una zona del cortex. */
+const NODES: NodeSpec[] = [
+  { key: "open", side: "l", anchor: [24, 17], elbow: [31, 17], target: [38, 36] },
+  { key: "urgent", side: "l", anchor: [22, 50], elbow: [27, 50], target: [32, 50] },
+  { key: "closed", side: "l", anchor: [24, 83], elbow: [31, 83], target: [38, 64] },
+  { key: "progress", side: "r", anchor: [76, 17], elbow: [69, 17], target: [62, 36] },
+  { key: "cicd", side: "r", anchor: [78, 50], elbow: [73, 50], target: [68, 50] },
+  { key: "pulse", side: "r", anchor: [76, 83], elbow: [69, 83], target: [62, 64] },
 ];
 
-const ISSUE_COLOR = KIND.issue.color;
-
-function HoloCard({
-  style,
-  color,
-  head,
-  repo,
-  text,
-}: {
-  style: CSSProperties;
+type NodeData = {
+  value: string | number;
+  label: string;
+  sub?: string;
   color: string;
-  head: string;
-  repo: string;
-  text: string;
-}) {
-  return (
-    <div className="holo-card hidden md:block" style={style}>
-      <p style={{ color }}>
-        {">"} {head}
-      </p>
-      <p className="text-[#d5c4a1] truncate">{repo}</p>
-      <p className="opacity-70 truncate">{text}</p>
-    </div>
-  );
-}
+  extra?: React.ReactNode;
+  onClick?: () => void;
+};
 
-function IssueItem({
-  issue,
-  index,
-  onHover,
-}: {
-  issue: OpenIssue;
-  index: number;
-  onHover: () => void;
-}) {
+function IssueRow({ issue, onHover }: { issue: Issue; onHover: () => void }) {
+  const open = issue.state === "open";
+  const color = open ? (isUrgent(issue) ? URGENT_COLOR : OPEN_COLOR) : CLOSED_COLOR;
+  const Icon = issue.redacted ? ShieldCheck : open ? CircleDot : CircleCheck;
+  const Row = issue.redacted ? "div" : "a";
+  const link = issue.redacted ? {} : { href: issue.url, target: "_blank", rel: "noreferrer" };
   return (
-    <li
-      className="stream-item stream-in border-b border-[#32302f] px-4 py-2.5"
-      style={{ animationDelay: `${index * 35}ms` }}
-      onPointerEnter={onHover}
-    >
-      <a
-        href={issue.url}
-        target="_blank"
-        rel="noreferrer"
-        className="flex gap-3 no-underline"
-      >
-        <span className="mt-0.5 shrink-0" style={{ color: ISSUE_COLOR }}>
-          <CircleDot size={14} />
-        </span>
+    <li onPointerEnter={onHover}>
+      <Row {...link} className="data-row flex gap-2.5 no-underline" title={issue.redacted ? "Detalle reservado hasta su corrección" : undefined}>
+        <Icon size={13} className="mt-0.5 shrink-0" style={{ color }} />
         <span className="min-w-0 flex-1">
-          <span className="flex items-center justify-between gap-2">
-            <span className="font-mono text-[11px] text-[var(--blue)] truncate">
-              {issue.repo.split("/")[1]}{" "}
-              <span className="text-[var(--yellow)]">#{issue.number}</span>
+          <span className="flex items-center justify-between gap-2 font-mono text-[11px]">
+            <span className="truncate text-[var(--blue)]">
+              {issue.repo.split("/")[1]} <span style={{ color: OPEN_COLOR }}>#{issue.number}</span>
             </span>
-            <span className="font-mono text-[10px] text-[var(--text-muted)] shrink-0">
-              {timeAgo(issue.updated_at)}
+            <span className="shrink-0 text-[10px] text-[var(--text-muted)]">
+              {timeAgo(open ? issue.updated_at : (issue.closed_at ?? issue.updated_at))}
             </span>
           </span>
-          <span className="block text-xs text-[var(--text-secondary)] line-clamp-2">
-            {issue.title}
-          </span>
+          <span className={`block text-xs line-clamp-2 ${issue.redacted ? "italic text-[var(--text-muted)]" : "text-[var(--text-secondary)]"}`}>{issue.title}</span>
           {issue.labels.length > 0 && (
-            <span className="mt-1.5 flex flex-wrap gap-1">
+            <span className="mt-1 flex flex-wrap gap-x-1.5 font-mono text-[10px]">
               {issue.labels.slice(0, 3).map((l) => (
-                <span
-                  key={l.name}
-                  className="font-mono text-[9px] px-1.5 py-px border"
-                  style={{
-                    color: l.color,
-                    borderColor: `${l.color}66`,
-                    background: `${l.color}14`,
-                  }}
-                >
+                <span key={l.name} style={{ color: l.color }}>
                   {l.name}
                 </span>
               ))}
             </span>
           )}
+        </span>
+      </Row>
+    </li>
+  );
+}
+
+function EventRow({ event, onHover }: { event: GitHubEvent; onHover: () => void }) {
+  const { label, color, Icon } = KIND[event.kind];
+  return (
+    <li onPointerEnter={onHover}>
+      <a href={event.repo.url} target="_blank" rel="noreferrer" className="data-row flex gap-2.5 no-underline">
+        <Icon size={13} className="mt-0.5 shrink-0" style={{ color }} />
+        <span className="min-w-0 flex-1">
+          <span className="flex items-center justify-between gap-2 font-mono text-[11px]">
+            <span className="truncate text-[var(--blue)]">{event.repo.name.split("/")[1]}</span>
+            <span className="shrink-0 text-[10px] text-[var(--text-muted)]">{timeAgo(event.created_at)}</span>
+          </span>
+          <span className="block text-xs text-[var(--text-secondary)] line-clamp-2">
+            <span className="font-mono mr-1" style={{ color }}>
+              {label}
+            </span>
+            {event.summary}
+          </span>
         </span>
       </a>
     </li>
@@ -134,283 +155,367 @@ function IssueItem({
 }
 
 export default function GitHubBrainSection() {
-  const {
-    events,
-    issues,
-    openIssues,
-    loading,
-    error,
-    lastFetch,
-    pulse,
-    refresh,
-    user,
-  } = useGitHubLive();
+  const { events, issues, issuesTotal, hourly, loading, error, lastFetch, pulse, refresh, user } = useGitHubLive();
+  const actions = useGitHubActions();
   const [kick, setKick] = useState(0);
-  const [tab, setTab] = useState<"issues" | "actividad">("issues");
+  const [tab, setTab] = useState<Tab>("abiertas");
+  const [repo, setRepo] = useState<string | null>(null);
+  const [hot, setHot] = useState<number | null>(null);
   const bump = () => setKick((k) => k + 1);
 
-  const colors = useMemo(
-    () => [
-      ...events.slice(0, 8).map((e) => KIND[e.kind].color),
-      ...(issues.length ? [ISSUE_COLOR, ISSUE_COLOR] : []),
-    ],
-    [events, issues.length],
-  );
+  const open = useMemo(() => issues.filter((i) => i.state === "open"), [issues]);
+  const closed = useMemo(() => issues.filter((i) => i.state === "closed"), [issues]);
+
+  const projects = useMemo<Project[]>(() => {
+    const map = new Map<string, Project>();
+    for (const it of issues) {
+      const p = map.get(it.repo) ?? {
+        repo: it.repo,
+        name: it.repo.split("/")[1],
+        open: 0,
+        closed: 0,
+        urgent: 0,
+        blocked: 0,
+        bugs: 0,
+        updated: it.updated_at,
+      };
+      if (it.state === "open") {
+        p.open += 1;
+        if (isUrgent(it)) p.urgent += 1;
+        if (isBlocked(it)) p.blocked += 1;
+        if (isBug(it)) p.bugs += 1;
+      } else p.closed += 1;
+      if (it.updated_at > p.updated) p.updated = it.updated_at;
+      map.set(it.repo, p);
+    }
+    return [...map.values()].sort((a, b) => b.open - a.open || b.updated.localeCompare(a.updated));
+  }, [issues]);
+
   const stats = useMemo(() => {
-    const counts: Partial<Record<GitHubEvent["kind"], number>> = {};
-    for (const e of events) counts[e.kind] = (counts[e.kind] ?? 0) + 1;
-    return counts;
-  }, [events]);
-  const repos = useMemo(
-    () => new Set(events.map((e) => e.repo.name)).size,
+    const total = open.length + closed.length;
+    const weekStart = lastFetch ? lastFetch - WEEK_MS : Infinity;
+    return {
+      urgent: open.filter(isUrgent).length,
+      blocked: open.filter(isBlocked).length,
+      closedWeek: closed.filter((i) => i.closed_at && new Date(i.closed_at).getTime() > weekStart).length,
+      progress: total ? Math.round((closed.length / total) * 100) : 0,
+      withWork: projects.filter((p) => p.open > 0).length,
+      events24: hourly.reduce((a, b) => a + b, 0),
+    };
+  }, [open, closed, projects, hourly, lastFetch]);
+
+  const delivery = useMemo(() => deliveryStats(actions.data?.runs ?? []), [actions.data]);
+  const autoIssues = useMemo(() => issues.filter((i) => hasLabel(i, (n) => n === "ci-failure")).length, [issues]);
+
+  const colors = useMemo(
+    () => [...events.slice(0, 8).map((e) => KIND[e.kind].color), OPEN_COLOR, CLOSED_COLOR],
     [events],
   );
 
-  const status = error
-    ? "degradado"
-    : loading && !events.length
-      ? "iniciando"
-      : "sincronizado";
+  const byRepo = <T,>(list: T[], key: (x: T) => string) => (repo ? list.filter((x) => key(x) === repo) : list);
+  const feedOpen = byRepo(open, (i) => i.repo);
+  const feedClosed = byRepo(closed, (i) => i.repo);
+  const feedEvents = byRepo(events, (e) => e.repo.name);
+  const peak = Math.max(1, ...hourly);
+  const ready = issuesTotal !== null;
+  const status = error ? "degradado" : loading && !events.length ? "iniciando" : "sincronizado";
+
+  const show = (v: string | number) => (ready ? v : "--");
+  const nodeData: Record<string, NodeData> = {
+    open: {
+      value: show(open.length),
+      label: "abiertas",
+      sub: "todos los repos",
+      color: OPEN_COLOR,
+      onClick: () => setTab("abiertas"),
+    },
+    urgent: {
+      value: show(stats.urgent),
+      label: "P0 / P1",
+      sub: `${stats.blocked} bloqueadas`,
+      color: URGENT_COLOR,
+      onClick: () => setTab("abiertas"),
+    },
+    closed: {
+      value: show(closed.length),
+      label: "cerradas",
+      sub: `${stats.closedWeek} en 7 días`,
+      color: CLOSED_COLOR,
+      onClick: () => setTab("cerradas"),
+    },
+    progress: {
+      value: show(`${stats.progress}%`),
+      label: "avance",
+      color: "#83a598",
+      extra: (
+        <span className="block h-1 bg-[#32302f] mt-1.5">
+          <span className="block h-full bg-[var(--aqua)] transition-all duration-700" style={{ width: `${stats.progress}%` }} />
+        </span>
+      ),
+    },
+    cicd: {
+      value: delivery.rate === null ? "--" : `${delivery.rate}%`,
+      label: "CI/CD verde",
+      sub: `${delivery.deploys} deploys a prod`,
+      color: "#b8bb26",
+      onClick: () => document.getElementById("cortex-pipeline")?.scrollIntoView({ behavior: "smooth", block: "nearest" }),
+    },
+    pulse: {
+      value: stats.events24,
+      label: "pulso 24h",
+      color: KIND.push.color,
+      onClick: () => setTab("actividad"),
+      extra: (
+        <span className="flex items-end gap-px h-4 mt-1.5">
+          {hourly.map((n, i) => (
+            <span
+              key={i}
+              className="flex-1"
+              style={{ height: `${Math.max(10, (n / peak) * 100)}%`, background: n ? KIND.push.color : "#32302f" }}
+            />
+          ))}
+        </span>
+      ),
+    },
+  };
+
+  const tabs: { id: Tab; label: string; count: number; color: string }[] = [
+    { id: "abiertas", label: "abiertas", count: feedOpen.length, color: OPEN_COLOR },
+    { id: "cerradas", label: "cerradas", count: feedClosed.length, color: CLOSED_COLOR },
+    { id: "actividad", label: "actividad", count: feedEvents.length, color: KIND.push.color },
+  ];
 
   return (
     <section id="cerebro" className="section">
       <div className="mx-auto max-w-6xl px-5 md:px-8">
         <div className="reveal">
-          <SectionTitle comment="lab cortex" />
+          <SectionTitle comment="observation cortex" />
         </div>
 
-        <div className="grid lg:grid-cols-[1.35fr_0.65fr] gap-4">
-          <div className="reveal stagger-1 panel hud hud-aqua lab-chamber relative min-h-[440px] md:min-h-[500px] overflow-hidden">
-            <div className="holo-floor" aria-hidden="true" />
-            <EnergyCore
-              burstKey={`${pulse}-${kick}`}
-              colors={colors}
-              className="absolute inset-0"
-            />
+        <div className="grid lg:grid-cols-[0.85fr_1.5fr_0.85fr] gap-4">
+          <div className="reveal stagger-2 panel hud p-4 md:p-5 flex flex-col order-2 lg:order-1 lg:h-[480px]">
+            <div className="flex items-center justify-between gap-2 mb-3">
+              <p className="section-comment !mb-0">proyectos</p>
+              <button
+                type="button"
+                onClick={() => setRepo(null)}
+                className={`model-tab ${repo === null ? "active" : ""}`}
+                style={repo === null ? { color: "var(--aqua)", borderColor: "var(--aqua)" } : undefined}
+              >
+                todos
+              </button>
+            </div>
+            <ul className="flex-1 overflow-y-auto space-y-1.5 pr-1 max-h-[360px] lg:max-h-none">
+              {!ready && <li className="data-row font-mono text-xs text-[var(--text-muted)]">leyendo repos…</li>}
+              {projects.map((p) => {
+                const total = p.open + p.closed;
+                const pct = total ? Math.round((p.closed / total) * 100) : 0;
+                const active = repo === p.repo;
+                return (
+                  <li key={p.repo}>
+                    <button
+                      type="button"
+                      onClick={() => setRepo(active ? null : p.repo)}
+                      onPointerEnter={bump}
+                      aria-pressed={active}
+                      className={`data-row block w-full text-left cursor-pointer ${active ? "is-active" : ""}`}
+                    >
+                      <span className="flex items-center justify-between gap-2 font-mono text-xs">
+                        <span className="truncate text-[var(--text-primary)]">{p.name}</span>
+                        <span className="shrink-0 text-[10px] text-[var(--text-muted)]">
+                          {p.closed}/{total} · {timeAgo(p.updated)}
+                        </span>
+                      </span>
+                      <span className="block h-1 bg-[#32302f] my-1.5">
+                        <span
+                          className="block h-full transition-all duration-700"
+                          style={{ width: `${pct}%`, background: p.open ? "var(--aqua)" : CLOSED_COLOR }}
+                        />
+                      </span>
+                      <span className="flex flex-wrap gap-x-2 font-mono text-[10px]">
+                        {p.open > 0 ? (
+                          <span style={{ color: OPEN_COLOR }}>{p.open} abiertas</span>
+                        ) : (
+                          <span style={{ color: CLOSED_COLOR }}>al día</span>
+                        )}
+                        {p.urgent > 0 && <span style={{ color: URGENT_COLOR }}>{p.urgent} P0/P1</span>}
+                        {p.blocked > 0 && <span className="text-[var(--purple)]">{p.blocked} bloqueadas</span>}
+                        {p.bugs > 0 && <span className="text-[var(--gx-accent)]">{p.bugs} bugs</span>}
+                        <span className="text-[var(--text-muted)]">{pct}%</span>
+                      </span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+
+          <div
+            className="reveal stagger-1 panel hud hud-aqua lab-chamber relative overflow-hidden order-1 lg:order-2 h-[420px] md:h-[480px]"
+            onPointerLeave={() => setHot(null)}
+          >
+            <div className="cortex-rings" aria-hidden="true">
+              <span className="cortex-ring cortex-ring-ticks" />
+              <span className="cortex-ring cortex-ring-dash" />
+              <span className="cortex-ring cortex-ring-arcs" />
+              <span className="cortex-ring cortex-sweep" />
+            </div>
+            <EnergyCore burstKey={`${pulse}-${kick}`} colors={colors} radius={0.24} className="absolute inset-0" />
+
+            <svg className="cortex-links hidden md:block" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+              {NODES.map((n, i) => (
+                <polyline
+                  key={n.key}
+                  points={[n.anchor, n.elbow, n.target].map((p) => p.join(",")).join(" ")}
+                  className={`cortex-link ${hot === i ? "is-hot" : ""}`}
+                  style={{ "--c": nodeData[n.key].color } as CSSProperties}
+                />
+              ))}
+            </svg>
+
+            {NODES.map((n, i) => (
+              <span
+                key={n.key}
+                className={`cortex-target hidden md:block ${hot === i ? "is-hot" : ""}`}
+                style={{ left: `${n.target[0]}%`, top: `${n.target[1]}%`, "--c": nodeData[n.key].color } as CSSProperties}
+                aria-hidden="true"
+              />
+            ))}
+
+            {NODES.map((n, i) => {
+              const d = nodeData[n.key];
+              const pos: CSSProperties =
+                n.side === "l"
+                  ? { right: `${100 - n.anchor[0]}%`, top: `${n.anchor[1]}%` }
+                  : { left: `${n.anchor[0]}%`, top: `${n.anchor[1]}%` };
+              return (
+                <button
+                  key={n.key}
+                  type="button"
+                  className={`cortex-node hidden md:block ${n.side === "r" ? "text-right" : ""}`}
+                  style={{ ...pos, "--c": d.color } as CSSProperties}
+                  onPointerEnter={() => {
+                    setHot(i);
+                    bump();
+                  }}
+                  onClick={d.onClick}
+                >
+                  <span className="block font-pixel text-base leading-none" style={{ color: d.color }}>
+                    {d.value}
+                  </span>
+                  <span className="block font-mono text-[10px] text-[var(--text-primary)] mt-1">{d.label}</span>
+                  {d.extra ?? (d.sub && <span className="block font-mono text-[9px] text-[var(--text-muted)]">{d.sub}</span>)}
+                </button>
+              );
+            })}
 
             <div className="absolute top-3 left-4 right-4 flex items-center justify-between font-mono text-[10px]">
-              <span className="text-[var(--aqua)]">SEBAS CORTEX · v2</span>
+              <span className="text-[var(--aqua)] tracking-wider">OBSERVATION CORTEX</span>
               <span className="flex items-center gap-1.5 text-[var(--text-muted)]">
                 <span
                   className="status-dot"
-                  style={
-                    error
-                      ? {
-                          background: "var(--red)",
-                          boxShadow: "0 0 8px var(--red)",
-                        }
-                      : undefined
-                  }
+                  style={error ? { background: "var(--red)", boxShadow: "0 0 8px var(--red)" } : undefined}
                 />
                 {status}
               </span>
             </div>
+            <p className="absolute bottom-3 inset-x-0 text-center font-mono text-[10px] text-[var(--text-muted)] hidden md:block">
+              sync{" "}
+              {lastFetch
+                ? new Date(lastFetch).toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit", hour12: false })
+                : "--:--"}{" "}
+              · @{user}
+            </p>
 
-            {issues.length > 0
-              ? issues
-                  .slice(0, 3)
-                  .map((it, i) => (
-                    <HoloCard
-                      key={it.id}
-                      style={HOLO_POS[i]}
-                      color={ISSUE_COLOR}
-                      head={`issue abierta · ${timeAgo(it.updated_at)}`}
-                      repo={`${it.repo.split("/")[1]} #${it.number}`}
-                      text={it.title}
-                    />
-                  ))
-              : events
-                  .slice(0, 3)
-                  .map((e, i) => (
-                    <HoloCard
-                      key={e.id}
-                      style={HOLO_POS[i]}
-                      color={KIND[e.kind].color}
-                      head={`${KIND[e.kind].label} · ${timeAgo(e.created_at)}`}
-                      repo={e.repo.name.split("/")[1]}
-                      text={e.summary}
-                    />
-                  ))}
-
-            <div className="absolute bottom-3 left-4 right-4 grid grid-cols-3 gap-2 font-mono text-[10px]">
-              <div className="border border-[rgba(142,192,124,0.3)] bg-[rgba(29,32,33,0.7)] px-2 py-1.5">
-                <p className="text-[var(--text-muted)]">issues abiertas</p>
-                <p className="font-pixel text-base text-[var(--yellow)]">
-                  {openIssues ?? "--"}
-                </p>
-              </div>
-              <div className="border border-[rgba(142,192,124,0.3)] bg-[rgba(29,32,33,0.7)] px-2 py-1.5">
-                <p className="text-[var(--text-muted)]">repos activos</p>
-                <p className="font-pixel text-base text-[var(--aqua)]">
-                  {repos}
-                </p>
-              </div>
-              <div className="border border-[rgba(142,192,124,0.3)] bg-[rgba(29,32,33,0.7)] px-2 py-1.5">
-                <p className="text-[var(--text-muted)]">última sync</p>
-                <p className="font-pixel text-base text-[var(--gx-accent)]">
-                  {lastFetch
-                    ? new Date(lastFetch).toLocaleTimeString("es-CL", {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                        hour12: false,
-                      })
-                    : "--:--"}
-                </p>
-              </div>
+            <div className="absolute bottom-3 inset-x-3 grid grid-cols-3 gap-1.5 md:hidden">
+              {NODES.map((n) => {
+                const d = nodeData[n.key];
+                return (
+                  <button
+                    key={n.key}
+                    type="button"
+                    className="cortex-node-mini"
+                    style={{ "--c": d.color } as CSSProperties}
+                    onClick={d.onClick}
+                  >
+                    <span className="block font-pixel text-sm leading-none" style={{ color: d.color }}>
+                      {d.value}
+                    </span>
+                    <span className="block font-mono text-[9px] text-[var(--text-muted)] mt-1">{d.label}</span>
+                  </button>
+                );
+              })}
             </div>
           </div>
 
-          <div className="reveal stagger-2 panel flex flex-col max-h-[500px]">
-            <div className="px-4 py-3 border-b border-[#3c3836] flex items-center justify-between gap-2">
-              <a
-                href={`https://github.com/${user}`}
-                target="_blank"
-                rel="noreferrer"
-                className="flex items-center gap-2 font-mono text-xs text-[var(--blue)] hover:text-[var(--gx-accent)] transition-colors"
-              >
-                <Github size={14} /> @{user}
-              </a>
-              <button
-                type="button"
-                onClick={() => {
-                  refresh();
-                  setKick((k) => k + 1);
-                }}
-                className="icon-btn"
-                aria-label="Sincronizar ahora"
-              >
-                <RefreshCw size={14} />
-              </button>
+          <div className="reveal stagger-3 panel hud p-4 md:p-5 flex flex-col order-3 lg:h-[480px]">
+            <div className="flex items-center justify-between gap-2 mb-3">
+              <p className="section-comment !mb-0 truncate">
+                {repo ? repo.split("/")[1] : "todo el trabajo"}
+              </p>
+              <span className="flex items-center gap-2">
+                <a
+                  href={repo ? `https://github.com/${repo}/issues` : `https://github.com/${user}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="icon-btn"
+                  aria-label="Abrir en GitHub"
+                >
+                  <Github size={14} />
+                </a>
+                <button
+                  type="button"
+                  onClick={() => {
+                    refresh();
+                    bump();
+                  }}
+                  className="icon-btn"
+                  aria-label="Sincronizar ahora"
+                >
+                  <RefreshCw size={14} />
+                </button>
+              </span>
             </div>
 
-            <div
-              className="px-4 py-2 flex gap-1.5 border-b border-[#3c3836]"
-              role="tablist"
-              aria-label="Vista del laboratorio"
-            >
-              <button
-                type="button"
-                role="tab"
-                aria-selected={tab === "issues"}
-                className={`chip-btn ${tab === "issues" ? "active" : ""}`}
-                style={{ "--accent-color": ISSUE_COLOR } as CSSProperties}
-                onClick={() => setTab("issues")}
-              >
-                <CircleDot size={12} /> issues activas · {openIssues ?? "…"}
-              </button>
-              <button
-                type="button"
-                role="tab"
-                aria-selected={tab === "actividad"}
-                className={`chip-btn ${tab === "actividad" ? "active" : ""}`}
-                style={{ "--accent-color": KIND.push.color } as CSSProperties}
-                onClick={() => setTab("actividad")}
-              >
-                <Zap size={12} /> actividad · {events.length}
-              </button>
+            <div role="tablist" aria-label="Vista del trabajo" className="grid grid-cols-3 gap-1.5 mb-3">
+              {tabs.map((t) => (
+                <button
+                  key={t.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={tab === t.id}
+                  onClick={() => setTab(t.id)}
+                  className={`model-tab !px-1 !text-[10px] ${tab === t.id ? "active" : ""}`}
+                  style={tab === t.id ? { color: t.color, borderColor: t.color } : undefined}
+                >
+                  {t.label} · {t.count}
+                </button>
+              ))}
             </div>
 
-            {tab === "issues" ? (
-              <ul key="issues" className="flex-1 overflow-y-auto">
-                {!issues.length && (
-                  <li className="px-4 py-6 font-mono text-xs text-[var(--text-muted)]">
-                    leyendo issues abiertas…
-                  </li>
-                )}
-                {issues.map((it, i) => (
-                  <IssueItem key={it.id} issue={it} index={i} onHover={bump} />
-                ))}
-                {openIssues !== null && openIssues > issues.length && (
-                  <li className="px-4 py-3">
-                    <a
-                      href={`https://github.com/issues?q=${encodeURIComponent(`is:open is:issue user:${user}`)}`}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="font-mono text-[11px] text-[var(--blue)] hover:text-[var(--gx-accent)]"
-                    >
-                      ver las {openIssues} en GitHub →
-                    </a>
-                  </li>
-                )}
-              </ul>
-            ) : (
-              <>
-                <div className="px-4 py-2 flex flex-wrap gap-1.5 border-b border-[#3c3836]">
-                  {(["push", "pr", "issue", "create"] as const).map((kind) => {
-                    const { label, color, Icon } = KIND[kind];
-                    return (
-                      <span
-                        key={kind}
-                        className="tag"
-                        style={{ color, borderColor: `${color}66` }}
-                      >
-                        <Icon size={11} /> {label} {stats[kind] ?? 0}
-                      </span>
-                    );
-                  })}
-                </div>
-
-                <ul key="actividad" className="flex-1 overflow-y-auto">
-                  {loading && !events.length && (
-                    <li className="px-4 py-6 font-mono text-xs text-[var(--text-muted)]">
-                      despertando núcleo…
-                    </li>
-                  )}
-                  {!loading && !events.length && !error && (
-                    <li className="px-4 py-6 font-mono text-xs text-[var(--text-muted)]">
-                      sin eventos públicos recientes
-                    </li>
-                  )}
-                  {error && !events.length && (
-                    <li className="px-4 py-6 font-mono text-xs text-[var(--red)]">
-                      no pude leer GitHub ({error})
-                    </li>
-                  )}
-                  {events.map((e, i) => {
-                    const { label, color, Icon } = KIND[e.kind];
-                    return (
-                      <li
-                        key={e.id}
-                        className="stream-item stream-in border-b border-[#32302f] px-4 py-2.5"
-                        style={{ animationDelay: `${i * 35}ms` }}
-                        onPointerEnter={bump}
-                      >
-                        <a
-                          href={e.repo.url}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="flex gap-3 no-underline"
-                        >
-                          <span className="mt-0.5 shrink-0" style={{ color }}>
-                            <Icon size={14} />
-                          </span>
-                          <span className="min-w-0 flex-1">
-                            <span className="flex items-center justify-between gap-2">
-                              <span className="font-mono text-[11px] text-[var(--blue)] truncate">
-                                {e.repo.name}
-                              </span>
-                              <span className="font-mono text-[10px] text-[var(--text-muted)] shrink-0">
-                                {timeAgo(e.created_at)}
-                              </span>
-                            </span>
-                            <span className="block text-xs text-[var(--text-secondary)] line-clamp-2">
-                              <span
-                                className="font-pixel mr-1"
-                                style={{ color }}
-                              >
-                                {label}
-                              </span>
-                              {e.summary}
-                            </span>
-                          </span>
-                        </a>
-                      </li>
-                    );
-                  })}
-                </ul>
-              </>
-            )}
+            <ul key={`${tab}-${repo}`} className="panel-swap flex-1 overflow-y-auto space-y-1.5 pr-1 max-h-[360px] lg:max-h-none">
+              {tab === "abiertas" && feedOpen.map((it) => <IssueRow key={it.id} issue={it} onHover={bump} />)}
+              {tab === "cerradas" && feedClosed.map((it) => <IssueRow key={it.id} issue={it} onHover={bump} />)}
+              {tab === "actividad" && feedEvents.map((e) => <EventRow key={e.id} event={e} onHover={bump} />)}
+              {tab !== "actividad" && !ready && (
+                <li className="data-row font-mono text-xs text-[var(--text-muted)]">leyendo issues…</li>
+              )}
+              {tab === "abiertas" && ready && !feedOpen.length && (
+                <li className="data-row font-mono text-xs" style={{ color: CLOSED_COLOR }}>
+                  sin issues abiertas · al día
+                </li>
+              )}
+              {tab === "actividad" && !feedEvents.length && (
+                <li className="data-row font-mono text-xs text-[var(--text-muted)]">
+                  {error ? `no pude leer GitHub (${error})` : loading ? "despertando núcleo…" : "sin actividad pública reciente"}
+                </li>
+              )}
+            </ul>
           </div>
+        </div>
+
+        <div id="cortex-pipeline">
+          <CiCdPipeline actions={actions} autoIssues={autoIssues} onActivity={bump} />
         </div>
       </div>
     </section>

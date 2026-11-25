@@ -3,6 +3,9 @@ name: Deploy to GitHub Pages
 on:
   push:
     branches: [ main ]
+  schedule:
+    - cron: '0 9 * * *'
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -33,6 +36,11 @@ jobs:
 
     - name: Install dependencies
       run: cd app && npm ci
+
+    - name: Snapshot GitHub Actions
+      run: cd app && node scripts/github-snapshot.mjs
+      env:
+        GITHUB_TOKEN: ${{ github.token }}
 
     - name: Build
       run: cd app && npm run build

@@ -1,30 +1,14 @@
 import { useEffect, useState } from 'react';
 import { FileDown, Github, Linkedin, Mail, MapPin } from 'lucide-react';
-import RobotMascot from '../pixel/RobotMascot';
+import LabCrew from '../pixel/LabCrew';
 import TiltCard from '../fx/TiltCard';
 import { toCode } from '../../lib/codegen';
 import { nowRoles, profile } from '../../data/cv';
 
-const CIRCUIT = [
-  'M20 70 H90 L120 100 V160',
-  'M380 60 H310 L280 90 V140',
-  'M30 300 H80 L110 270 V220',
-  'M370 290 H320 L300 270 V210',
-  'M60 180 H120',
-  'M340 170 H290',
-];
-
-const CIRCUIT_NODES: [number, number, string][] = [
-  [20, 70, '#8ec07c'],
-  [120, 160, '#fe8019'],
-  [380, 60, '#83a598'],
-  [280, 140, '#8ec07c'],
-  [30, 300, '#fabd2f'],
-  [110, 220, '#8ec07c'],
-  [370, 290, '#fe8019'],
-  [300, 210, '#83a598'],
-  [60, 180, '#fe8019'],
-  [340, 170, '#8ec07c'],
+const ROLES = [
+  { label: 'Developer', color: '#fe8019' },
+  { label: 'IA', color: '#8ec07c' },
+  { label: 'IoT', color: '#83a598' },
 ];
 
 function useClock() {
@@ -42,12 +26,12 @@ export default function HeroSection() {
   const clock = useClock();
 
   return (
-    <section id="top" className="relative pt-20 md:pt-24 pb-6">
-      <div className="mx-auto max-w-6xl px-5 md:px-8">
+    <section id="top" className="section relative">
+      <div className="mx-auto max-w-6xl px-5 md:px-8 w-full">
         <div className="hero-enter hero-delay-1 flex flex-wrap items-center justify-between gap-2 mb-4 font-mono text-[11px] text-[var(--text-muted)]">
           <span className="flex items-center gap-2">
             <span className="status-dot" />
-            sys.online · centro de control
+            cabina FB-LAB · presión ok
           </span>
           <span className="flex items-center gap-1.5">
             <MapPin size={12} className="text-[var(--gx-accent)]" />
@@ -56,14 +40,27 @@ export default function HeroSection() {
         </div>
 
         <div className="grid lg:grid-cols-[1.15fr_0.85fr] gap-4">
-          <div className="panel hud hero-enter hero-delay-2 p-6 md:p-9 flex flex-col justify-center">
-            <p className="section-comment">operador</p>
-            <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold leading-[1.02] text-[var(--text-primary)] mb-3 tracking-tight">
-              {profile.name}
+          <div className="panel hud hero-card hero-enter hero-delay-2 p-5 md:p-7 flex flex-col justify-center">
+            <p className="hero-name">{profile.shortName}</p>
+
+            <h1 className="hero-role" aria-label={profile.role}>
+              {ROLES.map(({ label, color }, i) => (
+                <span key={label} className="hero-role-word">
+                  {i > 0 && (
+                    <span className="hero-role-sep" aria-hidden="true">
+                      {i === 1 ? '+' : '&'}
+                    </span>
+                  )}
+                  <span className="font-pixel" style={{ color }}>
+                    {label}
+                  </span>
+                </span>
+              ))}
             </h1>
-            <p className="font-pixel text-xl md:text-2xl text-[var(--gx-accent)] mb-5">{profile.role}</p>
-            <p className="text-[var(--text-secondary)] max-w-xl mb-7 md:text-lg">{profile.mission}</p>
-            <div className="flex flex-wrap gap-3">
+
+            <p className="hero-mission">{profile.mission}</p>
+
+            <div className="flex flex-wrap gap-3 mt-6">
               <a className="pixel-btn pixel-btn-primary" href={profile.cv} download={profile.cvFile}>
                 <FileDown size={15} /> Descargar CV
               </a>
@@ -79,28 +76,14 @@ export default function HeroSection() {
             </div>
           </div>
 
-          <div className="panel hud hud-aqua lab-chamber hero-enter hero-delay-3 relative flex items-end justify-center min-h-[380px] pt-10 overflow-hidden">
-            <svg className="absolute inset-0 w-full h-full" viewBox="0 0 400 380" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
-              <g fill="none" stroke="#8ec07c" strokeOpacity="0.16" strokeWidth="1">
-                {CIRCUIT.map((d) => (
-                  <path key={d} d={d} />
-                ))}
-              </g>
-              {CIRCUIT_NODES.map(([x, y, c], i) => (
-                <circle
-                  key={`${x}-${y}`}
-                  className="circuit-node"
-                  style={{ animationDelay: `${(i % 5) * 0.7}s` }}
-                  cx={x}
-                  cy={y}
-                  r="2.5"
-                  fill={c}
-                />
-              ))}
-            </svg>
-            <RobotMascot scale={3} className="relative z-10" />
-            <span className="absolute top-3 left-4 font-mono text-[10px] text-[var(--aqua)]">unidad FB-01</span>
-            <span className="absolute top-3 right-4 font-mono text-[10px] text-[var(--text-muted)]">estado · operativo</span>
+          <div className="panel hud hud-aqua hero-viewport hero-enter hero-delay-3 relative flex flex-col justify-center overflow-hidden">
+            <div className="flex items-center justify-between px-4 pt-3 pb-2 font-mono text-[10px]">
+              <span className="text-[var(--aqua)]">lab cortex · equipo de agentes</span>
+              <span className="flex items-center gap-1.5 text-[var(--text-muted)]">
+                <span className="status-dot" /> online
+              </span>
+            </div>
+            <LabCrew />
           </div>
         </div>
 

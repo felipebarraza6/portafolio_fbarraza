@@ -4,6 +4,8 @@ type Props = {
   burstKey: string | number;
   colors: string[];
   className?: string;
+  /** Radio del cerebro relativo al lado menor del canvas. */
+  radius?: number;
 };
 
 type Node3 = { x: number; y: number; z: number; c: string };
@@ -19,9 +21,10 @@ function hexToRgb(hex: string) {
 }
 
 /** Holographic neural brain: static 3D point cloud split in two hemispheres, animated only by its energy core and synapse pulses. */
-export default function EnergyCore({ burstKey, colors, className = '' }: Props) {
+export default function EnergyCore({ burstKey, colors, className = '', radius = 0.3 }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const burstRef = useRef({ key: burstKey, colors });
+  const radiusRef = useRef(radius);
 
   useEffect(() => {
     burstRef.current = { key: burstKey, colors };
@@ -108,7 +111,7 @@ export default function EnergyCore({ burstKey, colors, className = '' }: Props) 
     function project() {
       cx = w / 2;
       cy = h / 2;
-      R = Math.min(w, h) * 0.3;
+      R = Math.min(w, h) * radiusRef.current;
       for (let i = 0; i < N; i++) {
         const n = nodes[i];
         const x1 = n.x * ca - n.z * sa;
