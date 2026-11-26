@@ -19,6 +19,28 @@ export type SectionId = (typeof SECTION_ORDER)[number];
 
 export type SectionMeta = { path: string; lines: string[] };
 
+export const SECTION_ROUTE: Record<SectionId, string> = {
+  top: '/',
+  flujo: '/flujo',
+  cerebro: '/cortex',
+  experiencia: '/experiencia',
+  productos: '/plataformas',
+  proyectos: '/proyectos',
+  stack: '/stack',
+  contacto: '/contacto',
+};
+
+export const SECTION_TITLE: Record<SectionId, string> = {
+  top: 'Felipe Barraza Vega · Developer + IA & IoT',
+  flujo: 'Flujo de trabajo · Felipe Barraza Vega',
+  cerebro: 'Cortex · Felipe Barraza Vega',
+  experiencia: 'Experiencia · Felipe Barraza Vega',
+  productos: 'Plataformas · Felipe Barraza Vega',
+  proyectos: 'Proyectos · Felipe Barraza Vega',
+  stack: 'Stack · Felipe Barraza Vega',
+  contacto: 'Contacto · Felipe Barraza Vega',
+};
+
 export const SECTION_META: Record<string, SectionMeta> = {
   top: { path: '~', lines: ['centro de control', 'sys.online'] },
   perfil: { path: '~', lines: ['centro de control', 'sys.online'] },
@@ -39,10 +61,23 @@ export const SECTION_META: Record<string, SectionMeta> = {
 const ALIAS: Record<string, SectionId> = {
   perfil: 'top',
   opencode: 'flujo',
+  cortex: 'cerebro',
+  plataformas: 'productos',
+  'y-arq': 'proyectos',
   formacion: 'stack',
 };
 
 export const sectionMeta = (id: string): SectionMeta => SECTION_META[id] ?? { path: `~/${id}`, lines: [] };
+
+export const sectionToPath = (id: SectionId): string => SECTION_ROUTE[id];
+
+export const sectionTitle = (id: SectionId): string => SECTION_TITLE[id];
+
+export function pathToSection(pathname: string): SectionId | null {
+  const clean = pathname.replace(/^\/+|\/+$/g, '').toLowerCase();
+  if (!clean) return 'top';
+  return resolveSection(clean);
+}
 
 export const reducedMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -70,6 +105,9 @@ export const setNavBusy = (v: boolean) => {
   busy = v;
 };
 export const currentSection = () => current;
+export const setCurrentSection = (id: SectionId) => {
+  current = id;
+};
 
 /** Activa una sección del deck (sin scroll de página). */
 export function jumpTo(id: string) {

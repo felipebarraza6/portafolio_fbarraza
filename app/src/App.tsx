@@ -1,5 +1,5 @@
 import { lazy, Suspense } from 'react';
-import { HashRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import './App.css';
 import Portfolio from './pages/Portfolio';
 
@@ -7,9 +7,8 @@ const KimiGuide = lazy(() => import('./pages/KimiGuide'));
 
 function App() {
   return (
-    <HashRouter>
+    <BrowserRouter basename={import.meta.env.BASE_URL}>
       <Routes>
-        <Route path="/" element={<Portfolio />} />
         <Route
           path="/guia-kimi"
           element={
@@ -18,8 +17,11 @@ function App() {
             </Suspense>
           }
         />
+        <Route path="/cerebro" element={<Navigate to="/cortex" replace />} />
+        <Route path="/productos" element={<Navigate to="/plataformas" replace />} />
+        <Route path="/*" element={<Portfolio />} />
       </Routes>
-    </HashRouter>
+    </BrowserRouter>
   );
 }
 

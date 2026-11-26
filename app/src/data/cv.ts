@@ -239,7 +239,6 @@ export const skillLogos: Record<string, string> = {
   Dart: 'dart',
   PHP: 'php',
   Java: 'openjdk',
-  'C#': 'csharp',
   Django: 'django',
   DRF: 'django',
   FastAPI: 'fastapi',
@@ -256,11 +255,9 @@ export const skillLogos: Record<string, string> = {
   Redis: 'redis',
   MySQL: 'mysql',
   RabbitMQ: 'rabbitmq',
-  S3: 'amazons3',
   Docker: 'docker',
   'Docker Compose': 'docker',
   Nginx: 'nginx',
-  systemd: 'systemd',
   'GitHub Actions': 'githubactions',
   Cloudflare: 'cloudflare',
   DigitalOcean: 'digitalocean',
@@ -617,10 +614,10 @@ export const certifications = [
 export const languages = [{ name: 'Español', level: 'nativo' }];
 
 export const navLinks = [
-  { href: '#flujo', label: 'flujo de trabajo' },
-  { href: '#cerebro', label: 'cortex' },
-  { href: '#experiencia', label: 'experiencia' },
-  { href: '#productos', label: 'plataformas' },
-  { href: '#proyectos', label: 'proyectos' },
-  { href: '#stack', label: 'stack' },
-];
+  { id: 'flujo', href: '/flujo', label: 'flujo de trabajo' },
+  { id: 'cerebro', href: '/cortex', label: 'cortex' },
+  { id: 'experiencia', href: '/experiencia', label: 'experiencia' },
+  { id: 'productos', href: '/plataformas', label: 'plataformas' },
+  { id: 'proyectos', href: '/proyectos', label: 'proyectos' },
+  { id: 'stack', href: '/stack', label: 'stack' },
+] as const;

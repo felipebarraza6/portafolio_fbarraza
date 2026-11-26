@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
-import { reducedMotion, sectionMeta } from '../../lib/navigation';
+import { useEffect, useState, type MouseEvent } from 'react';
+import { Link } from 'react-router-dom';
+import { navigateTo, reducedMotion, sectionMeta } from '../../lib/navigation';
 
 /** Header logo as a live shell prompt that retypes the path of the section in view. */
 export default function PromptLogo({ active }: { active: string }) {
@@ -19,14 +20,19 @@ export default function PromptLogo({ active }: { active: string }) {
 
   const shown = typed.path === path ? path.slice(0, typed.n) : reducedMotion() ? path : '';
 
+  const onClick = (e: MouseEvent<HTMLAnchorElement>) => {
+    if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    if (navigateTo('top')) e.preventDefault();
+  };
+
   return (
-    <a href="#top" className="prompt-logo no-underline" aria-label="Felipe Barraza, volver al inicio">
+    <Link to="/" onClick={onClick} className="prompt-logo no-underline" aria-label="Felipe Barraza, volver al inicio">
       <span className="w-2 h-2 bg-[var(--gx-accent)] shadow-[0_0_8px_var(--gx-accent)] shrink-0" />
       <span className="text-[var(--gx-accent)]">fb</span>
       <span className="text-[var(--text-muted)]">@lab:</span>
       <span className="text-[var(--blue)]">{shown}</span>
       <span className="text-[var(--text-muted)]">$</span>
       <span className="code-cursor" />
-    </a>
+    </Link>
   );
 }

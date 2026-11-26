@@ -416,11 +416,11 @@ body {
   opacity: 0;
   visibility: hidden;
   pointer-events: none;
-  transform: translateY(10px);
+  transform: translateY(10px) scale(0.995);
   transition:
-    opacity 0.28s var(--ease),
-    transform 0.28s var(--ease),
-    visibility 0.28s;
+    opacity 0.32s var(--ease),
+    transform 0.36s var(--ease),
+    visibility 0.32s;
 }
 
 .deck-panel.is-active {
@@ -436,11 +436,18 @@ body {
   overflow-x: hidden;
   overflow-y: auto;
   overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
   touch-action: pan-y;
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 0.75rem 0 3.25rem;
+  padding: 0.75rem 0 calc(5.25rem + env(safe-area-inset-bottom, 0px));
+}
+
+@media (min-width: 768px) {
+  .deck-scroll {
+    padding-bottom: 3.25rem;
+  }
 }
 
 .deck-frame {
@@ -466,16 +473,17 @@ body {
 .deck-next {
   position: fixed;
   left: 50%;
-  bottom: 14px;
+  bottom: calc(14px + env(safe-area-inset-bottom, 0px));
   z-index: 40;
   display: inline-flex;
   flex-direction: column;
   align-items: center;
   gap: 2px;
   transform: translateX(-50%);
-  padding: 6px 10px;
+  padding: 6px 12px;
   color: var(--text-muted);
-  background: rgba(29, 32, 33, 0.75);
+  background: rgba(29, 32, 33, 0.86);
+  backdrop-filter: blur(8px);
   border: 1px solid #3c3836;
   cursor: pointer;
   animation: deck-nudge 1.8s ease-in-out infinite;
@@ -513,18 +521,36 @@ body {
 
 .reveal {
   opacity: 0;
-  transform: translateY(18px);
-  filter: blur(4px);
+  transform: translateY(14px);
+  filter: blur(3px);
   transition:
-    opacity 0.7s var(--ease),
-    transform 0.7s var(--ease),
-    filter 0.7s var(--ease);
+    opacity 0.55s var(--ease),
+    transform 0.55s var(--ease),
+    filter 0.55s var(--ease);
 }
 
+.deck-panel.is-active .reveal,
 .reveal.active {
   opacity: 1;
   transform: translateY(0);
   filter: blur(0);
+}
+
+@keyframes skeleton-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+.skeleton-bar {
+  background: linear-gradient(
+    90deg,
+    rgba(60, 56, 54, 0.45) 0%,
+    rgba(102, 92, 84, 0.55) 50%,
+    rgba(60, 56, 54, 0.45) 100%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.35s ease-in-out infinite;
+  border: 1px solid rgba(80, 73, 69, 0.55);
 }
 
 .stagger-1 { transition-delay: 0.06s; }
@@ -670,12 +696,12 @@ body {
 }
 
 @keyframes panel-swap {
-  from { opacity: 0; transform: translateY(8px); }
-  to { opacity: 1; transform: translateY(0); }
+  from { opacity: 0; transform: translateY(6px); filter: blur(1.5px); }
+  to { opacity: 1; transform: translateY(0); filter: blur(0); }
 }
 
 .panel-swap {
-  animation: panel-swap 0.45s var(--ease);
+  animation: panel-swap 0.34s var(--ease) both;
 }
 
 /* ---------- Panels (textured, isometric extrusion) ---------- */

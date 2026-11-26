@@ -62,8 +62,12 @@ export default function ExperienceSection() {
           <SectionTitle comment="experiencia" />
         </div>
 
-        <div className="grid md:grid-cols-[250px_1fr] gap-4">
-          <div role="tablist" aria-label="Experiencia" className="reveal stagger-1 flex md:flex-col gap-2 overflow-x-auto md:overflow-visible pb-1 md:pb-0 pr-0.5">
+        <div className="grid md:grid-cols-[250px_1fr] gap-4 items-start">
+          <div
+            role="tablist"
+            aria-label="Experiencia"
+            className="reveal stagger-1 flex md:flex-col gap-2 overflow-x-auto md:overflow-visible snap-x snap-mandatory pb-1 md:pb-0 pr-0.5"
+          >
             {experience.map((j, i) => {
               const c = COLOR[j.company] ?? '#fe8019';
               return (
@@ -73,7 +77,7 @@ export default function ExperienceSection() {
                   type="button"
                   aria-selected={i === idx}
                   onClick={() => setIdx(i)}
-                  className={`tab-btn min-w-[220px] md:min-w-0 ${i === idx ? 'active' : ''}`}
+                  className={`tab-btn snap-start shrink-0 min-w-[220px] md:min-w-0 ${i === idx ? 'active' : ''}`}
                   style={{ '--accent-color': c } as CSSProperties}
                 >
                   <Logo src={j.logo} name={j.company} small />
@@ -87,104 +91,44 @@ export default function ExperienceSection() {
             })}
           </div>
 
-          <TiltCard key={idx} className="panel-swap p-5 md:p-6" accent={color} max={2}>
-            <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
-              <div className="flex items-center gap-3 min-w-0">
-                <span style={{ '--accent-color': color } as CSSProperties}>
-                  <Logo src={job.logo} name={job.company} />
-                </span>
-                <div className="min-w-0">
-                  <h3 className="text-lg font-semibold text-[var(--text-primary)] leading-tight">{job.role}</h3>
-                  <p className="font-mono text-sm" style={{ color }}>
-                    {job.company}
-                  </p>
-                </div>
-              </div>
-              <p className="font-mono text-[11px] text-[var(--text-muted)]">
-                {job.place} · {job.period}
-              </p>
-            </div>
-
-            {job.references ? (
-              <>
-                <p className="text-sm text-[var(--text-secondary)] mb-3">{job.context}</p>
-                {job.positions && (
-                  <ol className="mb-3 space-y-1.5">
-                    {job.positions.map((p) => (
-                      <li key={p.title} className="data-row flex items-center justify-between gap-3 font-mono text-[11px]">
-                        <span className="text-[var(--text-primary)]">{p.title}</span>
-                        <span className="shrink-0 text-[var(--text-muted)]">{p.period}</span>
-                      </li>
-                    ))}
-                  </ol>
-                )}
-                <ul className="space-y-2 mb-3">
-                  {job.highlights.map((h, i) => (
-                    <li
-                      key={h.slice(0, 40)}
-                      className="panel-swap flex gap-2 text-sm text-[var(--text-muted)] leading-relaxed"
-                      style={{ animationDelay: `${i * 60}ms` }}
-                    >
-                      <span className="font-mono shrink-0" style={{ color }} aria-hidden="true">
-                        ›
-                      </span>
-                      <span>{h}</span>
-                    </li>
-                  ))}
-                </ul>
-                <div className="flex flex-wrap gap-1.5 mb-4">
-                  {job.stack.map((s) => (
-                    <span key={s} className="tag">
-                      {s}
-                    </span>
-                  ))}
-                  {job.tools.map((t) => (
-                    <span key={t} className="tag" style={{ color: 'var(--aqua)' }}>
-                      {t}
-                    </span>
-                  ))}
-                </div>
-                <div className="grid md:grid-cols-2 gap-3">
-                  <div className="panel hud p-3">
-                    <p className="section-comment !mb-3">organigrama</p>
-                    <OrgChart org={job.org} color={color} />
+          <TiltCard className="p-5 md:p-6 flex flex-col lg:h-[580px] overflow-hidden" accent={color} max={2}>
+            <div key={idx} className="panel-swap flex-1 min-h-0 flex flex-col">
+              <div className="flex flex-wrap items-start justify-between gap-3 pb-3.5 mb-4 border-b border-[#3c3836]/80 shrink-0">
+                <div className="flex items-center gap-3 min-w-0">
+                  <span style={{ '--accent-color': color } as CSSProperties}>
+                    <Logo src={job.logo} name={job.company} />
+                  </span>
+                  <div className="min-w-0">
+                    <h3 className="text-lg font-semibold text-[var(--text-primary)] leading-tight">{job.role}</h3>
+                    <p className="font-mono text-sm" style={{ color }}>
+                      {job.company}
+                    </p>
                   </div>
-                  <div className="panel hud p-3">
-                    <p className="section-comment !mb-2">referencias · cartas en el CV</p>
-                    <ul className="space-y-1.5">
-                      {job.references.map((r) => (
-                        <li key={r.name}>
-                          <a
-                            href={`${profile.cv}#page=${r.page}`}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="data-row flex gap-2.5 no-underline"
-                          >
-                            <FileText size={13} className="mt-0.5 shrink-0" style={{ color }} />
-                            <span className="min-w-0">
-                              <span className="block text-xs text-[var(--text-primary)]">{r.name}</span>
-                              <span className="block text-[11px] text-[var(--text-muted)] leading-snug">{r.role}</span>
-                              <span className="block font-mono text-[10px] mt-0.5" style={{ color }}>
-                                {r.letter} · anexo C, pág. {r.page}
-                              </span>
-                            </span>
-                          </a>
+                </div>
+                <p className="font-mono text-[11px] text-[var(--text-muted)] shrink-0">
+                  {job.place} · {job.period}
+                </p>
+              </div>
+
+              <div className="grid lg:grid-cols-[1fr_290px] gap-4 flex-1 min-h-0">
+                <div className="min-w-0 flex flex-col lg:overflow-y-auto lg:pr-1.5">
+                  <p className="text-sm text-[var(--text-secondary)] mb-3">{job.context}</p>
+                  {job.positions && (
+                    <ol className="mb-3 space-y-1.5">
+                      {job.positions.map((p) => (
+                        <li key={p.title} className="data-row flex items-center justify-between gap-3 font-mono text-[11px]">
+                          <span className="text-[var(--text-primary)]">{p.title}</span>
+                          <span className="shrink-0 text-[var(--text-muted)]">{p.period}</span>
                         </li>
                       ))}
-                    </ul>
-                  </div>
-                </div>
-              </>
-            ) : (
-              <div className="grid lg:grid-cols-[1fr_280px] gap-4 lg:items-start">
-                <div className="min-w-0">
-                  <p className="text-sm text-[var(--text-secondary)] mb-3">{job.context}</p>
+                    </ol>
+                  )}
                   <ul className="space-y-2 mb-4">
                     {job.highlights.map((h, i) => (
                       <li
                         key={h.slice(0, 40)}
                         className="panel-swap flex gap-2 text-sm text-[var(--text-muted)] leading-relaxed"
-                        style={{ animationDelay: `${i * 60}ms` }}
+                        style={{ animationDelay: `${i * 45}ms` }}
                       >
                         <span className="font-mono shrink-0" style={{ color }} aria-hidden="true">
                           ›
@@ -193,7 +137,7 @@ export default function ExperienceSection() {
                       </li>
                     ))}
                   </ul>
-                  <div className="flex flex-wrap gap-1.5">
+                  <div className="flex flex-wrap gap-1.5 mt-auto pt-3 border-t border-[#3c3836]/60">
                     {job.stack.map((s) => (
                       <span key={s} className="tag">
                         {s}
@@ -206,14 +150,41 @@ export default function ExperienceSection() {
                     ))}
                   </div>
                 </div>
-                <aside className="min-w-0">
-                  <div className="panel hud p-3">
+
+                <aside className="min-w-0 flex flex-col gap-3 lg:overflow-y-auto lg:pr-0.5">
+                  <div className="panel hud p-3 shrink-0">
                     <p className="section-comment !mb-3">organigrama</p>
                     <OrgChart org={job.org} color={color} />
                   </div>
+                  {job.references && (
+                    <div className="panel hud p-3 shrink-0">
+                      <p className="section-comment !mb-2">referencias · cartas en el CV</p>
+                      <ul className="space-y-1.5">
+                        {job.references.map((r) => (
+                          <li key={r.name}>
+                            <a
+                              href={`${profile.cv}#page=${r.page}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="data-row flex gap-2.5 no-underline"
+                            >
+                              <FileText size={13} className="mt-0.5 shrink-0" style={{ color }} />
+                              <span className="min-w-0">
+                                <span className="block text-xs text-[var(--text-primary)]">{r.name}</span>
+                                <span className="block text-[11px] text-[var(--text-muted)] leading-snug">{r.role}</span>
+                                <span className="block font-mono text-[10px] mt-0.5" style={{ color }}>
+                                  {r.letter} · anexo C, pág. {r.page}
+                                </span>
+                              </span>
+                            </a>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
                 </aside>
               </div>
-            )}
+            </div>
           </TiltCard>
         </div>
       </div>

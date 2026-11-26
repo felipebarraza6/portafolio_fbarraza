@@ -1,4 +1,5 @@
-import { lazy, Suspense, useEffect, useState, type ComponentType, type ReactNode } from 'react';
+import { lazy, Suspense, useEffect, useState, type ComponentType, type MouseEvent as ReactMouseEvent, type ReactNode } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { ChevronDown, FileDown, Github, Linkedin, Mail } from 'lucide-react';
 import { navLinks, profile } from '../data/cv';
 import HeroSection from '../components/sections/HeroSection';
@@ -11,7 +12,12 @@ import {
   SECTION_ORDER,
   adjacentSection,
   navigateTo,
+  pathToSection,
   sectionIndex,
+  sectionMeta,
+  sectionTitle,
+  sectionToPath,
+  setCurrentSection,
   type SectionId,
 } from '../lib/navigation';
 
@@ -41,7 +47,47 @@ function activateReveals(id: string) {
   void el.offsetWidth;
   el.classList.add('section-arrive');
   window.setTimeout(() => el.classList.remove('section-arrive'), 500);
+  const scroller = el.closest('.deck-scroll');
+  if (scroller) scroller.scrollTop = 0;
   return true;
+}
+
+function SectionSkeleton({ id }: { id: SectionId }) {
+  const meta = sectionMeta(id);
+  return (
+    <section className="section" aria-busy="true" aria-label={`Cargando ${meta.path}`}>
+      <div className="mx-auto max-w-6xl px-5 md:px-8 panel-swap">
+        <div className="flex items-center justify-between gap-3 mb-6">
+          <p className="font-mono text-xs text-[var(--aqua)]">
+            <span className="text-[var(--text-muted)]">// </span>
+            cargando {meta.path}…
+          </p>
+          <span className="font-mono text-[10px] text-[var(--text-muted)]">sys.mount</span>
+        </div>
+        <div className="h-0.5 w-full bg-[#3c3836] overflow-hidden mb-6">
+          <div className="h-full w-1/2 bg-[var(--gx-accent)] animate-pulse" />
+        </div>
+        <div className="grid md:grid-cols-3 gap-4">
+          <div className="panel p-5 space-y-3 md:col-span-2">
+            <div className="skeleton-bar h-5 w-48" />
+            <div className="skeleton-bar h-3.5 w-full" />
+            <div className="skeleton-bar h-3.5 w-5/6" />
+            <div className="skeleton-bar h-3.5 w-2/3" />
+            <div className="flex gap-2 pt-2">
+              <div className="skeleton-bar h-6 w-16" />
+              <div className="skeleton-bar h-6 w-20" />
+              <div className="skeleton-bar h-6 w-14" />
+            </div>
+          </div>
+          <div className="panel p-5 space-y-3">
+            <div className="skeleton-bar h-4 w-32" />
+            <div className="skeleton-bar h-24 w-full" />
+            <div className="skeleton-bar h-10 w-full" />
+          </div>
+        </div>
+      </div>
+    </section>
+  );
 }
 
 function Panel({
@@ -55,14 +101,14 @@ function Panel({
   mounted: boolean;
   children: ReactNode;
 }) {
-  // Con lazy mount el DOM llega después del ARRIVE: reintentar hasta activar .reveal.
+  // Con lazy mount el DOM llega después del ARRIVE: reintentar hasta disparar section-arrive.
   useEffect(() => {
     if (!active || !mounted || id === 'top') return;
     if (activateReveals(id)) return;
     let tries = 0;
     let raf = 0;
     const tick = () => {
-      if (activateReveals(id) || ++tries > 60) return;
+      if (activateReveals(id) || ++tries > 90) return;
       raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
@@ -73,11 +119,7 @@ function Panel({
     <div className={`deck-panel ${active ? 'is-active' : ''}`} id={id === 'top' ? 'panel-top' : undefined} aria-hidden={!active}>
       <div className="deck-scroll">
         <div className="deck-frame">
-          {mounted ? (
-            <Suspense fallback={<div className="mx-auto max-w-6xl px-5 py-16 font-mono text-xs text-[var(--text-muted)]">cargando…</div>}>
-              {children}
-            </Suspense>
-          ) : null}
+          {mounted ? <Suspense fallback={<SectionSkeleton id={id} />}>{children}</Suspense> : null}
         </div>
       </div>
     </div>
@@ -85,12 +127,21 @@ function Panel({
 }
 
 export default function Portfolio() {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const initialSection = pathToSection(location.pathname) ?? 'top';
   const [menuOpen, setMenuOpen] = useState(false);
-  const [activeId, setActiveId] = useState<SectionId>('top');
-  const [seen, setSeen] = useState<Set<SectionId>>(() => new Set(['top']));
-  const activeHref = activeId === 'top' ? '' : `#${activeId}`;
+  const [activeId, setActiveId] = useState<SectionId>(initialSection);
+  const [seen, setSeen] = useState<Set<SectionId>>(() => new Set(['top', initialSection]));
+  const activePath = sectionToPath(activeId);
   const progress = Math.max(0, sectionIndex(activeId)) / Math.max(1, SECTION_ORDER.length - 1);
   const hasNext = !!adjacentSection(activeId, 1);
+
+  const handleNavClick = (e: ReactMouseEvent<HTMLAnchorElement>, id: SectionId, closeMenu = false) => {
+    if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    if (closeMenu) setMenuOpen(false);
+    if (navigateTo(id)) e.preventDefault();
+  };
 
   useEffect(() => {
     document.documentElement.classList.add('deck-mode');
@@ -100,6 +151,25 @@ export default function Portfolio() {
       document.body.classList.remove('deck-mode');
     };
   }, []);
+
+  // Sincroniza URL → deck (carga directa, Atrás/Adelante y rutas desconocidas).
+  useEffect(() => {
+    setMenuOpen(false);
+    const resolved = pathToSection(location.pathname);
+    if (!resolved) {
+      navigate('/', { replace: true });
+      return;
+    }
+    setCurrentSection(resolved);
+    setActiveId(resolved);
+    setSeen((s) => (s.has(resolved) ? s : new Set(s).add(resolved)));
+    activateReveals(resolved);
+  }, [location.pathname, navigate]);
+
+  // Título dinámico por sección para pestañas e historial del navegador.
+  useEffect(() => {
+    document.title = sectionTitle(activeId);
+  }, [activeId]);
 
   // Prefetch de secciones en idle: no bloquea el primer paint.
   useEffect(() => {
@@ -122,13 +192,13 @@ export default function Portfolio() {
     return () => window.clearTimeout(timeoutId);
   }, []);
 
-  // HashRouter owns location.hash, so in-page "#id" anchors must navigate the deck.
+  // Compatibilidad con anclas "#id" internas que puedan existir en secciones.
   useEffect(() => {
     const onClick = (e: MouseEvent) => {
-      if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey) return;
+      if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
       const link = (e.target as Element | null)?.closest?.('a[href^="#"]');
       const href = link?.getAttribute('href');
-      if (!href || href.startsWith('#/')) return;
+      if (!href) return;
       const id = href === '#' ? 'top' : href.slice(1);
       if (navigateTo(id)) e.preventDefault();
     };
@@ -152,11 +222,15 @@ export default function Portfolio() {
       setActiveId(id);
       setSeen((s) => (s.has(id) ? s : new Set(s).add(id)));
       activateReveals(id);
+      const nextPath = sectionToPath(id);
+      if (location.pathname !== nextPath) {
+        navigate(nextPath);
+      }
     };
     window.addEventListener(ARRIVE_EVENT, onArrive);
     document.getElementById('top')?.querySelectorAll('.reveal').forEach((n) => n.classList.add('active'));
     return () => window.removeEventListener(ARRIVE_EVENT, onArrive);
-  }, []);
+  }, [location.pathname, navigate]);
 
   return (
     <div className="deck relative h-[100dvh] overflow-hidden">
@@ -174,13 +248,18 @@ export default function Portfolio() {
         }}
       >
         <div className="mx-auto max-w-6xl px-4 sm:px-5 md:px-8 h-14 flex items-center justify-between gap-3">
-          <PromptLogo active={activeHref || '#top'} />
+          <PromptLogo active={activeId} />
 
           <nav className="hidden lg:flex items-center gap-5">
             {navLinks.map((l) => (
-              <a key={l.href} href={l.href} className={`nav-link ${activeHref === l.href ? 'active' : ''}`}>
+              <Link
+                key={l.href}
+                to={l.href}
+                onClick={(e) => handleNavClick(e, l.id)}
+                className={`nav-link ${activePath === l.href ? 'active' : ''}`}
+              >
                 {l.label}
-              </a>
+              </Link>
             ))}
           </nav>
 
@@ -222,15 +301,22 @@ export default function Portfolio() {
           <div className="lg:hidden border-t border-[#3c3836] bg-[var(--bg-primary)] px-4 sm:px-5 py-4 panel-swap">
             <nav className="grid grid-cols-2 gap-2 mb-4" aria-label="Secciones">
               {navLinks.map((l) => (
-                <a
+                <Link
                   key={l.href}
-                  href={l.href}
-                  className={`nav-link ${activeHref === l.href ? 'active' : ''}`}
-                  onClick={() => setMenuOpen(false)}
+                  to={l.href}
+                  className={`nav-link ${activePath === l.href ? 'active' : ''}`}
+                  onClick={(e) => handleNavClick(e, l.id, true)}
                 >
                   //{l.label}
-                </a>
+                </Link>
               ))}
+              <Link
+                to="/contacto"
+                className={`nav-link ${activePath === '/contacto' ? 'active' : ''}`}
+                onClick={(e) => handleNavClick(e, 'contacto', true)}
+              >
+                //contacto
+              </Link>
             </nav>
             <div className="flex items-center gap-2 border-t border-[#3c3836] pt-3">
               <a href={profile.github} target="_blank" rel="noreferrer" className="icon-btn" aria-label="GitHub">
